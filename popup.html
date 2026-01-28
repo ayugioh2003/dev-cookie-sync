@@ -200,6 +200,67 @@
       opacity: 0.4;
       cursor: not-allowed;
     }
+
+    .label-with-btn {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+
+    .label-with-btn .form-label {
+      margin-bottom: 0;
+    }
+
+    .btn-add {
+      width: 22px;
+      height: 22px;
+      padding: 0;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      background: #f9fafb;
+      color: #374151;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .btn-add:hover {
+      background: #e5e7eb;
+      border-color: #9ca3af;
+    }
+
+    .url-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .url-item {
+      display: flex;
+      gap: 6px;
+    }
+
+    .url-item .form-input {
+      flex: 1;
+    }
+
+    .btn-remove {
+      padding: 8px 10px;
+      border: 1px solid #fecaca;
+      border-radius: 6px;
+      background: #fef2f2;
+      color: #991b1b;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+    }
+
+    .btn-remove:hover {
+      background: #fee2e2;
+      border-color: #f87171;
+    }
   </style>
 </head>
 <body>
@@ -234,19 +295,19 @@
   </div>
 
   <div class="form-group">
-    <label class="form-label">Target URL</label>
-    <div class="input-with-btn">
-      <input type="url" id="target-url" class="form-input" placeholder="http://localhost:3000">
-      <button type="button" class="btn-goto" id="goto-target" title="Open Target URL">↗</button>
+    <div class="label-with-btn">
+      <label class="form-label">Target URLs</label>
+      <button type="button" class="btn-add" id="add-target" title="Add Target URL">+</button>
     </div>
+    <div id="target-list" class="url-list"></div>
   </div>
 
   <div class="form-group">
-    <label class="form-label">Note URL (optional)</label>
-    <div class="input-with-btn">
-      <input type="url" id="note-url" class="form-input" placeholder="https://login.example.com">
-      <button type="button" class="btn-goto" id="goto-note" title="Open Note URL">↗</button>
+    <div class="label-with-btn">
+      <label class="form-label">Note URLs (optional)</label>
+      <button type="button" class="btn-add" id="add-note" title="Add Note URL">+</button>
     </div>
+    <div id="note-list" class="url-list"></div>
   </div>
 
   <div class="form-group">

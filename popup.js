@@ -4,8 +4,8 @@ const DEFAULT_PRESETS = [
     id: 'example-preset',
     name: 'Example (Alpha → Local)',
     source: 'https://alpha.example.com',
-    target: 'http://localhost:3000',
-    noteUrl: '',
+    targets: ['http://localhost:3000'],
+    noteUrls: [],
     cookieName: 'session'
   }
 ]
@@ -13,21 +13,23 @@ const DEFAULT_PRESETS = [
 // State
 let presets = []
 let currentPresetId = null
+let targets = ['']
+let noteUrls = []
 
 // DOM Elements
 const presetSelect = document.getElementById('preset-select')
 const presetNameInput = document.getElementById('preset-name')
 const sourceInput = document.getElementById('source-url')
-const targetInput = document.getElementById('target-url')
-const noteUrlInput = document.getElementById('note-url')
+const targetListEl = document.getElementById('target-list')
+const noteListEl = document.getElementById('note-list')
 const cookieNameInput = document.getElementById('cookie-name')
 const syncBtn = document.getElementById('sync-btn')
 const savePresetBtn = document.getElementById('save-preset-btn')
 const deletePresetBtn = document.getElementById('delete-preset-btn')
 const statusEl = document.getElementById('status')
 const gotoSourceBtn = document.getElementById('goto-source')
-const gotoTargetBtn = document.getElementById('goto-target')
-const gotoNoteBtn = document.getElementById('goto-note')
+const addTargetBtn = document.getElementById('add-target')
+const addNoteBtn = document.getElementById('add-note')
 
 // Initialize
 async function init() {
@@ -48,6 +50,13 @@ async function init() {
 async function loadPresets() {
   const { savedPresets } = await chrome.storage.local.get('savedPresets')
   presets = savedPresets || DEFAULT_PRESETS
+
+  // Migration: convert old format to new format
+  presets = presets.map(p => ({
+    ...p,
+    targets: p.targets || (p.target ? [p.target] : ['']),
+    noteUrls: p.noteUrls || (p.noteUrl ? [p.noteUrl] : [])
+  }))
 }
 
 async function savePresets() {
@@ -60,14 +69,59 @@ function renderPresetOptions() {
   ).join('') + '<option value="__new__">+ New Preset...</option>'
 }
 
+function renderUrlList(container, urls, type) {
+  container.innerHTML = urls.map((url, index) => `
+    <div class="url-item" data-index="${index}">
+      <input type="url" class="form-input ${type}-input" value="${url}"
+             placeholder="${type === 'target' ? 'http://localhost:3000' : 'https://login.example.com'}">
+      <button type="button" class="btn-goto" title="Open URL">↗</button>
+      <button type="button" class="btn-remove" title="Remove">×</button>
+    </div>
+  `).join('')
+
+  // Add event listeners
+  container.querySelectorAll('.url-item').forEach((item, index) => {
+    const input = item.querySelector('.form-input')
+    const gotoBtn = item.querySelector('.btn-goto')
+    const removeBtn = item.querySelector('.btn-remove')
+
+    input.addEventListener('input', (e) => {
+      if (type === 'target') {
+        targets[index] = e.target.value
+        debouncedCheckStatus()
+      } else {
+        noteUrls[index] = e.target.value
+      }
+    })
+
+    gotoBtn.addEventListener('click', () => {
+      const url = input.value.trim()
+      if (url) chrome.tabs.create({ url })
+    })
+
+    removeBtn.addEventListener('click', () => {
+      if (type === 'target') {
+        if (targets.length > 1) {
+          targets.splice(index, 1)
+          renderUrlList(container, targets, type)
+          debouncedCheckStatus()
+        }
+      } else {
+        noteUrls.splice(index, 1)
+        renderUrlList(container, noteUrls, type)
+      }
+    })
+  })
+}
+
 function selectPreset(presetId) {
   if (presetId === '__new__') {
     // New preset mode
     currentPresetId = null
     presetNameInput.value = ''
     sourceInput.value = ''
-    targetInput.value = ''
-    noteUrlInput.value = ''
+    targets = ['']
+    noteUrls = []
     cookieNameInput.value = 'session'
     deletePresetBtn.style.display = 'none'
     presetSelect.value = '__new__'
@@ -77,14 +131,17 @@ function selectPreset(presetId) {
       currentPresetId = preset.id
       presetNameInput.value = preset.name
       sourceInput.value = preset.source
-      targetInput.value = preset.target
-      noteUrlInput.value = preset.noteUrl || ''
+      targets = [...(preset.targets || [''])]
+      noteUrls = [...(preset.noteUrls || [])]
       cookieNameInput.value = preset.cookieName
       deletePresetBtn.style.display = 'inline-block'
       presetSelect.value = presetId
       chrome.storage.local.set({ lastPresetId: presetId })
     }
   }
+
+  renderUrlList(targetListEl, targets, 'target')
+  renderUrlList(noteListEl, noteUrls, 'note')
   checkStatus()
 }
 
@@ -95,11 +152,11 @@ function generateId() {
 async function saveCurrentAsPreset() {
   const name = presetNameInput.value.trim()
   const source = sourceInput.value.trim()
-  const target = targetInput.value.trim()
-  const noteUrl = noteUrlInput.value.trim()
   const cookieName = cookieNameInput.value.trim()
+  const validTargets = targets.map(t => t.trim()).filter(t => t)
+  const validNoteUrls = noteUrls.map(n => n.trim()).filter(n => n)
 
-  if (!name || !source || !target || !cookieName) {
+  if (!name || !source || validTargets.length === 0 || !cookieName) {
     setStatus('請填寫所有必要欄位', 'error')
     return
   }
@@ -110,8 +167,8 @@ async function saveCurrentAsPreset() {
     if (preset) {
       preset.name = name
       preset.source = source
-      preset.target = target
-      preset.noteUrl = noteUrl
+      preset.targets = validTargets
+      preset.noteUrls = validNoteUrls
       preset.cookieName = cookieName
     }
   } else {
@@ -120,8 +177,8 @@ async function saveCurrentAsPreset() {
       id: generateId(),
       name,
       source,
-      target,
-      noteUrl,
+      targets: validTargets,
+      noteUrls: validNoteUrls,
       cookieName
     }
     presets.push(newPreset)
@@ -158,10 +215,10 @@ function setStatus(message, type = 'info') {
 
 async function syncCookie() {
   const source = sourceInput.value.trim()
-  const target = targetInput.value.trim()
+  const validTargets = targets.map(t => t.trim()).filter(t => t)
   const cookieName = cookieNameInput.value.trim()
 
-  if (!source || !target || !cookieName) {
+  if (!source || validTargets.length === 0 || !cookieName) {
     setStatus('請填寫所有欄位', 'error')
     return
   }
@@ -182,21 +239,23 @@ async function syncCookie() {
       return
     }
 
-    // 2. Determine if target is secure
-    const isSecure = target.startsWith('https://')
+    // 2. Write cookie to all targets
+    let successCount = 0
+    for (const target of validTargets) {
+      const isSecure = target.startsWith('https://')
+      await chrome.cookies.set({
+        url: target,
+        name: cookieName,
+        value: cookie.value,
+        path: '/',
+        httpOnly: true,
+        secure: isSecure,
+        expirationDate: cookie.expirationDate
+      })
+      successCount++
+    }
 
-    // 3. Write cookie to target
-    await chrome.cookies.set({
-      url: target,
-      name: cookieName,
-      value: cookie.value,
-      path: '/',
-      httpOnly: true,
-      secure: isSecure,
-      expirationDate: cookie.expirationDate
-    })
-
-    setStatus('✅ Cookie 已同步！', 'success')
+    setStatus(`✅ Cookie 已同步到 ${successCount} 個目標！`, 'success')
 
   } catch (error) {
     console.error('Sync failed:', error)
@@ -208,10 +267,10 @@ async function syncCookie() {
 
 async function checkStatus() {
   const source = sourceInput.value.trim()
-  const target = targetInput.value.trim()
+  const validTargets = targets.map(t => t.trim()).filter(t => t)
   const cookieName = cookieNameInput.value.trim()
 
-  if (!source || !target || !cookieName) {
+  if (!source || validTargets.length === 0 || !cookieName) {
     setStatus('Configure URLs above', 'info')
     return
   }
@@ -222,19 +281,32 @@ async function checkStatus() {
       name: cookieName
     })
 
-    const targetCookie = await chrome.cookies.get({
-      url: target,
-      name: cookieName
-    })
-
     if (!sourceCookie) {
       setStatus(`⚠️ ${new URL(source).hostname} 未登入`, 'warning')
-    } else if (!targetCookie) {
-      setStatus('Ready to sync', 'info')
-    } else if (sourceCookie.value === targetCookie.value) {
-      setStatus('✅ Already synced', 'success')
+      return
+    }
+
+    // Check all targets
+    let syncedCount = 0
+    let needSyncCount = 0
+    for (const target of validTargets) {
+      const targetCookie = await chrome.cookies.get({
+        url: target,
+        name: cookieName
+      })
+      if (targetCookie && targetCookie.value === sourceCookie.value) {
+        syncedCount++
+      } else {
+        needSyncCount++
+      }
+    }
+
+    if (needSyncCount === 0) {
+      setStatus(`✅ All ${syncedCount} targets synced`, 'success')
+    } else if (syncedCount === 0) {
+      setStatus(`Ready to sync (${validTargets.length} targets)`, 'info')
     } else {
-      setStatus('🔄 Cookies differ, sync needed', 'warning')
+      setStatus(`🔄 ${needSyncCount}/${validTargets.length} need sync`, 'warning')
     }
   } catch (e) {
     setStatus('Configure URLs above', 'info')
@@ -254,8 +326,22 @@ syncBtn.addEventListener('click', syncCookie)
 savePresetBtn.addEventListener('click', saveCurrentAsPreset)
 deletePresetBtn.addEventListener('click', deleteCurrentPreset)
 gotoSourceBtn.addEventListener('click', () => openUrl(sourceInput.value.trim()))
-gotoTargetBtn.addEventListener('click', () => openUrl(targetInput.value.trim()))
-gotoNoteBtn.addEventListener('click', () => openUrl(noteUrlInput.value.trim()))
+
+addTargetBtn.addEventListener('click', () => {
+  targets.push('')
+  renderUrlList(targetListEl, targets, 'target')
+  // Focus the new input
+  const inputs = targetListEl.querySelectorAll('.form-input')
+  if (inputs.length > 0) inputs[inputs.length - 1].focus()
+})
+
+addNoteBtn.addEventListener('click', () => {
+  noteUrls.push('')
+  renderUrlList(noteListEl, noteUrls, 'note')
+  // Focus the new input
+  const inputs = noteListEl.querySelectorAll('.form-input')
+  if (inputs.length > 0) inputs[inputs.length - 1].focus()
+})
 
 // Debounced status check on input change
 let statusTimeout
@@ -264,7 +350,6 @@ function debouncedCheckStatus() {
   statusTimeout = setTimeout(checkStatus, 500)
 }
 sourceInput.addEventListener('input', debouncedCheckStatus)
-targetInput.addEventListener('input', debouncedCheckStatus)
 cookieNameInput.addEventListener('input', debouncedCheckStatus)
 
 // Initialize
