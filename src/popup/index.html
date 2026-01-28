@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dev Cookie Sync</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="header">
+    <span class="header-icon">🍪</span>
+    <span class="header-title">Dev Cookie Sync</span>
+  </div>
+
+  <!-- Preset Selector -->
+  <div class="preset-row">
+    <div class="form-group">
+      <label class="form-label">Preset</label>
+      <select id="preset-select" class="form-select"></select>
+    </div>
+    <button id="delete-preset-btn" class="btn btn-danger btn-small" title="Delete preset">🗑️</button>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label">Preset Name</label>
+    <input type="text" id="preset-name" class="form-input" placeholder="My Preset">
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Configuration -->
+  <div class="form-group">
+    <label class="form-label">Source URL</label>
+    <div class="input-with-btn">
+      <input type="url" id="source-url" class="form-input" placeholder="https://alpha.example.com">
+      <button type="button" class="btn-goto" id="goto-source" title="Open Source URL">↗</button>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <div class="label-with-btn">
+      <label class="form-label">Target URLs</label>
+      <button type="button" class="btn-add" id="add-target" title="Add Target URL">+</button>
+    </div>
+    <div id="target-list" class="url-list"></div>
+  </div>
+
+  <div class="form-group">
+    <div class="label-with-btn">
+      <label class="form-label">Note URLs (optional)</label>
+      <button type="button" class="btn-add" id="add-note" title="Add Note URL">+</button>
+    </div>
+    <div id="note-list" class="url-list"></div>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label">Cookie Name</label>
+    <input type="text" id="cookie-name" class="form-input" placeholder="session">
+  </div>
+
+  <!-- Actions -->
+  <div class="btn-row">
+    <button id="save-preset-btn" class="btn btn-secondary">💾 Save Preset</button>
+    <button id="sync-btn" class="btn btn-primary">🔄 Sync Now</button>
+  </div>
+
+  <div id="status" class="status info">
+    Checking...
+  </div>
+
+  <script type="module" src="index.js"></script>
+</body>
+</html>
